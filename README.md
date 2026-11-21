@@ -24,11 +24,21 @@ How it plays:
 - **Sneak mode.** Hold **Shift** to move slowly and quietly — your suspicion
   fills at a third of the normal rate. Bushes hide you completely unless a
   guard is nearly on top of you.
+- **Coins that talk.** Each floor slips a few coins into your pocket (three
+  on the first two floors, four on the Vault Floor). Press **E** to toss one
+  in the direction you last moved: it arcs about a body's length away,
+  lands, and a beat later *pings*. Every guard within earshot — 230px,
+  through walls, whatever it was facing — leaves its waypoint loop, walks
+  to the sound at patrol speed, scans the spot for a moment, then picks its
+  patrol back up from the nearest waypoint. The cone keeps working while a
+  guard investigates, so a coin buys you a *moved* guard, not a blind one.
+  The HUD counts the coins left in your pocket; an empty pocket just clicks.
 - **Ears as a second sense.** Guard footsteps are synthesised with WebAudio
   and grow louder as a guard nears, so you can hear a patrol coming around a
   shelf before its cone rounds the corner.
-- **Controls:** WASD or arrow keys to move, Shift to sneak, R to restart the
-  level, Enter or click to start and to retry.
+- **Controls:** WASD or arrow keys to move, Shift to sneak, E to toss a
+  coin, P or Esc to pause, R to restart the level, Enter or click to start
+  and to retry.
 
 Everything is drawn on canvas at run time — the depot floor, the warm lamp
 pools, the crates and shelf walls, the pulsing ledger and the exit gate — and

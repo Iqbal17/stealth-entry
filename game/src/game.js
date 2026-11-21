@@ -34,6 +34,9 @@
     bannerLeft: 0,
     bannerTotal: 0,
     shotMode: false,
+    paused: false,
+    coinsLeft: 0,
+    coin: null,
   };
 
   function loadLevel(index) {
@@ -45,6 +48,9 @@
     state.guards = HushGuards.buildGuards(state.level);
     state.detection = 0;
     state.hasLedger = false;
+    state.coinsLeft = state.level.coins || 0;
+    state.coin = null;
+    state.paused = false;
   }
 
   function showBanner(seconds) {
@@ -111,10 +117,69 @@
     }
   }
 
+  // The coin toss: E throws one of the level's few coins about 90px in the
+  // direction the courier faces (the last direction moved). The coin arcs,
+  // lands, sits for one short beat, then pings — and every guard close
+  // enough to hear it leaves its loop to investigate the point.
+  var COIN_TOSS_DIST = 90;
+  var COIN_FLY_TIME = 0.45;
+  var COIN_BEAT = 0.28;
+  var COIN_RING_TIME = 0.6;
+
+  function tossCoin() {
+    HushAudio.unlock();
+    if (state.shotMode || state.paused || state.mode !== 'play') return;
+    if (state.coin && state.coin.phase === 'fly') return; // one in the air
+    if (state.coinsLeft <= 0) {
+      HushAudio.coinClick(); // empty pocket: a dull click and nothing else
+      return;
+    }
+    state.coinsLeft -= 1;
+    var dir = state.player.facing;
+    var tx = state.player.x + Math.cos(dir) * COIN_TOSS_DIST;
+    var ty = state.player.y + Math.sin(dir) * COIN_TOSS_DIST;
+    tx = Math.max(14, Math.min(BOUNDS.w - 14, tx));
+    ty = Math.max(14, Math.min(BOUNDS.h - 14, ty));
+    state.coin = {
+      sx: state.player.x, sy: state.player.y,
+      x: tx, y: ty,
+      t: 0, phase: 'fly', beat: 0, ringT: -1,
+    };
+  }
+
+  function updateCoin(dt) {
+    var coin = state.coin;
+    if (!coin) return;
+    if (coin.phase === 'fly') {
+      coin.t += dt / COIN_FLY_TIME;
+      if (coin.t >= 1) { coin.t = 1; coin.phase = 'beat'; }
+    } else if (coin.phase === 'beat') {
+      coin.beat += dt;
+      if (coin.beat >= COIN_BEAT) {
+        coin.phase = 'rest';
+        coin.ringT = 0;
+        HushAudio.coinPing();
+        HushGuards.distractGuards(state.guards, coin.x, coin.y);
+      }
+    }
+    if (coin.ringT >= 0 && coin.ringT < 1) {
+      coin.ringT = Math.min(1, coin.ringT + dt / COIN_RING_TIME);
+    }
+  }
+
+  // P or Esc freezes the simulation; the render loop keeps drawing the
+  // frozen frame under the pause overlay. Shot mode never pauses.
+  function togglePause() {
+    if (state.shotMode) return;
+    if (state.mode !== 'play' && state.mode !== 'banner') return;
+    state.paused = !state.paused;
+  }
+
   function updatePlay(dt) {
     state.totalTime += dt;
     HushPlayer.updatePlayer(state.player, keys, dt, state.solids, state.level.bushes, BOUNDS);
     HushGuards.updateGuards(state.guards, dt, state.time);
+    updateCoin(dt);
     soundFootsteps();
     HushDetection.updateDetection(state, dt);
 
@@ -143,6 +208,7 @@
   }
 
   function update(dt) {
+    if (state.paused) return; // frozen frame; the render loop still draws
     state.time += dt;
     if (state.shotMode) return; // staged frame: lamps flicker, nothing moves
     if (state.mode === 'title') {
@@ -188,6 +254,13 @@
       keys.sneak = true;
     } else if (e.code === 'Enter') {
       primaryAction();
+    } else if (e.code === 'KeyE') {
+      if (!e.repeat) tossCoin();
+    } else if (e.code === 'KeyP' || e.code === 'Escape') {
+      if (!e.repeat) {
+        HushAudio.unlock();
+        togglePause();
+      }
     } else if (e.code === 'KeyR') {
       HushAudio.unlock();
       if (!state.shotMode && (state.mode === 'play' || state.mode === 'caught' || state.mode === 'banner')) {

@@ -63,6 +63,18 @@ var HushAudio = (function () {
     setTimeout(function () { tone(990, 990, 0.14, 0.12, 'sine'); }, 80);
   }
 
+  // A tossed coin lands: one bright, short ping — metal on stone — with a
+  // fainter harmonic a breath later. This is the sound guards home in on.
+  function coinPing() {
+    tone(1568, 1318, 0.16, 0.09, 'sine');
+    setTimeout(function () { tone(2093, 1760, 0.1, 0.05, 'sine'); }, 30);
+  }
+
+  // An empty pocket: the dull little click when E is pressed with no coins.
+  function coinClick() {
+    tone(190, 110, 0.06, 0.05, 'triangle');
+  }
+
   function caught() {
     tone(320, 70, 0.5, 0.22, 'sawtooth');
   }
@@ -85,6 +97,8 @@ var HushAudio = (function () {
     step: step,
     playerStep: playerStep,
     pickup: pickup,
+    coinPing: coinPing,
+    coinClick: coinClick,
     caught: caught,
     levelClear: levelClear,
     gameWon: gameWon,

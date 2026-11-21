@@ -115,15 +115,67 @@ var HushRender = (function () {
     ctx.restore();
   }
 
+  // The tossed coin: a spinning gold speck arcing to its landing point with
+  // a shadow on the floor beneath it, then a small disc at rest — and, for a
+  // moment after it lands, the ping itself as a soft expanding ring.
+  function drawCoin(ctx, state) {
+    var coin = state.coin;
+    if (!coin) return;
+    if (coin.phase === 'fly') {
+      var t = coin.t;
+      var gx = coin.sx + (coin.x - coin.sx) * t;
+      var gy = coin.sy + (coin.y - coin.sy) * t;
+      var lift = Math.sin(t * Math.PI) * 24;
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.beginPath(); ctx.ellipse(gx, gy + 3, 6, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+      var wob = Math.abs(Math.cos(t * Math.PI * 3)); // the spin, edge to face
+      ctx.fillStyle = '#f4c95d';
+      ctx.strokeStyle = '#8a6420';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.ellipse(gx, gy - lift, 3 + 4 * wob, 6, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      return;
+    }
+    ctx.fillStyle = '#e8bc4a';
+    ctx.strokeStyle = '#8a6420';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.ellipse(coin.x, coin.y, 6, 4, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    if (coin.ringT >= 0 && coin.ringT < 1) {
+      ctx.strokeStyle = 'rgba(255,220,140,' + (0.55 * (1 - coin.ringT)) + ')';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(coin.x, coin.y, 8 + coin.ringT * 64, 0, Math.PI * 2); ctx.stroke();
+    }
+  }
+
   function drawVisionCones(ctx, state) {
     for (var i = 0; i < state.guards.length; i++) {
       var guard = state.guards[i];
       var poly = HushGuards.visionConePolygon(guard, state.blockers, state.bounds);
+      var base = 0.13 + 0.17 * guard.alert;
+      // A soft halo first: the same occlusion-clipped polygon pushed a
+      // little past its own edge and filled very faintly, so the rim
+      // dissolves instead of ending on a hard line.
+      ctx.beginPath();
+      ctx.moveTo(poly[0][0], poly[0][1]);
+      for (var h = 1; h < poly.length; h++) {
+        ctx.lineTo(
+          guard.x + (poly[h][0] - guard.x) * 1.07,
+          guard.y + (poly[h][1] - guard.y) * 1.07);
+      }
+      ctx.closePath();
+      ctx.fillStyle = heatColor(guard.alert, base * 0.35);
+      ctx.fill();
+      // The cone itself: a radial gradient, strongest at the guard and
+      // falling away to nothing at the rim — same amber-to-red heat color,
+      // same true clipped shape.
       ctx.beginPath();
       ctx.moveTo(poly[0][0], poly[0][1]);
       for (var k = 1; k < poly.length; k++) ctx.lineTo(poly[k][0], poly[k][1]);
       ctx.closePath();
-      ctx.fillStyle = heatColor(guard.alert, 0.13 + 0.17 * guard.alert);
+      var grad = ctx.createRadialGradient(guard.x, guard.y, 6, guard.x, guard.y, guard.range);
+      grad.addColorStop(0, heatColor(guard.alert, Math.min(0.55, base * 1.6)));
+      grad.addColorStop(0.55, heatColor(guard.alert, base * 0.8));
+      grad.addColorStop(1, heatColor(guard.alert, 0));
+      ctx.fillStyle = grad;
       ctx.fill();
       ctx.strokeStyle = heatColor(guard.alert, 0.25);
       ctx.lineWidth = 1;
@@ -279,10 +331,22 @@ var HushRender = (function () {
     ctx.lineWidth = 1;
     ctx.strokeRect(bx, ey - 6, bw, 12);
 
+    // Coins left: a label and one gold pip per coin, just left of the eye.
+    ctx.font = '400 12px system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(240,240,230,0.55)';
+    ctx.textAlign = 'right';
+    ctx.fillText('coins', w - 306, ey + 4);
+    for (var ci = 0; ci < state.coinsLeft; ci++) {
+      ctx.fillStyle = '#e8bc4a';
+      ctx.strokeStyle = '#8a6420';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(w - 294 + ci * 13, ey, 4.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    }
+
     ctx.font = '400 12px system-ui, sans-serif';
     ctx.fillStyle = 'rgba(240,240,230,0.55)';
     ctx.textAlign = 'left';
-    ctx.fillText('WASD / arrows · Shift = sneak · R = restart', 14, state.bounds.h - 12);
+    ctx.fillText('WASD / arrows · Shift = sneak · E = toss coin · P = pause · R = restart', 14, state.bounds.h - 12);
     ctx.textAlign = 'right';
     var right = [];
     if (state.player.sneaking && state.player.moving) right.push('sneaking');
@@ -307,6 +371,7 @@ var HushRender = (function () {
     centerText(ctx, state, 'Slip past the patrols, take the ledger, reach the exit gate unseen.', 292, 15, 'rgba(240,240,230,0.85)', 400);
     centerText(ctx, state, 'Move with WASD or the arrow keys. Hold Shift to sneak — slow, but hard to spot.', 320, 15, 'rgba(240,240,230,0.85)', 400);
     centerText(ctx, state, 'Crates, walls and bushes break a guard\u2019s line of sight. A full eye means caught.', 348, 15, 'rgba(240,240,230,0.85)', 400);
+    centerText(ctx, state, 'Press E to toss a coin — its ping pulls guards off their patrol to look.', 376, 15, 'rgba(240,240,230,0.85)', 400);
     centerText(ctx, state, 'Click or press Enter to begin', 428, 18, '#7dffab', 700);
   }
 
@@ -329,6 +394,12 @@ var HushRender = (function () {
     ctx.restore();
   }
 
+  function drawPaused(ctx, state) {
+    ctx.fillStyle = 'rgba(4,6,12,0.55)';
+    ctx.fillRect(0, 0, state.bounds.w, state.bounds.h);
+    centerText(ctx, state, 'Paused — P to resume', 292, 26, '#ffd489', 700);
+  }
+
   function drawComplete(ctx, state) {
     ctx.fillStyle = 'rgba(4,10,8,0.78)';
     ctx.fillRect(0, 0, state.bounds.w, state.bounds.h);
@@ -347,6 +418,7 @@ var HushRender = (function () {
     drawLedger(ctx, state);
     drawVisionCones(ctx, state);
     drawSolids(ctx, state);
+    drawCoin(ctx, state);
     drawPlayerFigure(ctx, state);
     for (var i = 0; i < state.guards.length; i++) drawGuardFigure(ctx, state, state.guards[i]);
     drawBushes(ctx, state);
@@ -356,6 +428,7 @@ var HushRender = (function () {
     else if (state.mode === 'caught') drawCaught(ctx, state);
     else if (state.mode === 'complete') drawComplete(ctx, state);
     else if (state.mode === 'banner') drawBanner(ctx, state);
+    if (state.paused && !state.shotMode) drawPaused(ctx, state);
   }
 
   return { drawScene: drawScene, heatColor: heatColor };

@@ -17,6 +17,7 @@ var HushLevels = [
     name: 'Level 1 · The Night Yard',
     sub: 'Learn the cones. Two guards, wide lanes.',
     range: 165,
+    coins: 3,
     walls: [
       { x: 430, y: 0, w: 24, h: 210 },
       { x: 430, y: 390, w: 24, h: 210 },
@@ -51,6 +52,7 @@ var HushLevels = [
     name: 'Level 2 · The Aisles',
     sub: 'Long shelves, three patrols, one zig-zag route.',
     range: 170,
+    coins: 3,
     walls: [
       { x: 60, y: 150, w: 340, h: 26 },
       { x: 470, y: 150, w: 430, h: 26 },
@@ -89,6 +91,7 @@ var HushLevels = [
     name: 'Level 3 · The Vault Floor',
     sub: 'The ledger sleeps in an alcove. Four guards do not.',
     range: 178,
+    coins: 4,
     walls: [
       { x: 380, y: 60, w: 24, h: 150 },
       { x: 556, y: 60, w: 24, h: 150 },
